@@ -1,0 +1,4 @@
+[custom.all.suppressor]
+type = "local"
+path = "."
+ipkg = "suppressor.ipkg"
