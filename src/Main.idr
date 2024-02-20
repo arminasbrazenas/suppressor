@@ -16,12 +16,12 @@ lookupFarthest' [] x _ = x
 lookupFarthest' _ x [] = x
 lookupFarthest' xxs@(x :: xs) y (z :: zs) = 
   if .value z == x
-    then lookupFarthest' xs z (.children z)
+    then lookupFarthest' xs z $ .children z
     else lookupFarthest' xxs y zs
 
 lookupFarthest : Eq a => Vect n a -> Trie a -> Trie a
 lookupFarthest [] x = x
-lookupFarthest x y = lookupFarthest' x y (.children y)
+lookupFarthest x y = lookupFarthest' x y $ .children y
 
 insert : Eq a => Vect n a -> Trie a -> Trie a
 
