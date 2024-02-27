@@ -15,11 +15,11 @@ data Trie : TrieLevel -> Type where
                (value : Char) -> 
                (isTerminal : Bool) -> Trie Node
 
-size : Trie lvl -> Nat
+size : Trie _ -> Nat
 size (MkTrieRoot x _) = x
 size (MkTrieNode x _ _ _) = x
 
-children : (trie : Trie lvl) -> Vect (size trie) (Trie Node)
+children : (trie : Trie _) -> Vect (size trie) (Trie Node)
 children (MkTrieRoot _ x) = x
 children (MkTrieNode _ x _ _) = x
 
@@ -92,7 +92,7 @@ lookupNodes (c :: cs) (n :: ns) =
     then lookupNode cs n (children n)  
     else lookupNodes cs ns
 
-lookup : String -> Trie Root -> Maybe (Trie Node)
+lookup : String -> Trie _ -> Maybe (Trie Node)
 lookup str root = lookupNodes (unpack str) (children root)
 
 some = insert "Labas" buildRoot
@@ -100,4 +100,7 @@ some2 = insert "Labasasa" some
 some3 = insert "Labasasas" some2
 some4 = insert "Antanas" some3
 
-a = lookup "Labas" some4
+prev = lookup "Lab" some4
+next = case prev of
+  Nothing => Nothing
+  Just p => lookup "as" p
