@@ -3,68 +3,101 @@ module Main
 import Data.Vect
 import Data.List
 
--- %default total
+%default total
 
-record TrieNode where
-  constructor MkTrieNode
-  children : List TrieNode
-  value : Char
-  isTerminal : Bool
+data TrieLevel = Root | Node
 
-record TrieRoot where
-  constructor MkTrieRoot
-  children : List TrieNode
+data Trie : TrieLevel -> Type where
+  MkTrieRoot : (size : Nat) -> 
+               (children : Vect size (Trie Node)) -> Trie Root
+  MkTrieNode : (size : Nat) -> 
+               (children : Vect size (Trie Node)) -> 
+               (value : Char) -> 
+               (isTerminal : Bool) -> Trie Node
 
-lookupNode : List Char -> TrieNode -> List TrieNode -> Maybe TrieNode
+size : Trie lvl -> Nat
+size (MkTrieRoot x _) = x
+size (MkTrieNode x _ _ _) = x
+
+children : (trie : Trie lvl) -> Vect (size trie) (Trie Node)
+children (MkTrieRoot _ x) = x
+children (MkTrieNode _ x _ _) = x
+
+value : Trie Node -> Char
+value (MkTrieNode _ _ x _) = x
+
+isTerminal : Trie Node -> Bool
+isTerminal (MkTrieNode _ _ _ x) = x
+
+buildRoot : Trie Root
+buildRoot = MkTrieRoot 0 []
+
+buildNode : List Char -> Maybe (Trie Node)
+buildNode [] = Nothing
+buildNode [x] = Just $ MkTrieNode 0 [] x True
+buildNode (x :: xs) = case buildNode xs of
+  Nothing => Nothing
+  Just child => Just $ MkTrieNode 1 [child] x False
+
+findNodeIndex : Char -> Vect n (Trie Node) -> Maybe (Fin n)
+findNodeIndex c [] = Nothing
+findNodeIndex c xs = findIndex (\x => value x == c) xs
+
+insertAtNode : List Char -> Trie Node -> Trie Node
+insertAtNode [] node = node
+insertAtNode str@(c :: cs) node = 
+  case findNodeIndex c (children node) of
+    Nothing => case buildNode str of
+      Nothing => node
+      Just newChild => MkTrieNode 
+                        ((size node) + 1)
+                        ((children node) ++ [newChild])
+                        (value node)
+                        (isTerminal node)
+    Just idx => MkTrieNode
+                  (size node) 
+                  (updateAt idx (\x => insertAtNode cs x) (children node))
+                  (value node)
+                  (isTerminal node)
+
+insertAtRoot : List Char -> Trie Root -> Trie Root
+insertAtRoot [] root = root
+insertAtRoot str@(c :: cs) root = 
+  case findNodeIndex c (children root) of
+    Nothing => case buildNode str of
+      Nothing => root
+      Just newNode => MkTrieRoot 
+                        ((size root) + 1) 
+                        ((children root) ++ [newNode])
+    Just idx => MkTrieRoot 
+                  (size root) 
+                  (updateAt idx (\x => insertAtNode cs x) (children root))
+
+insert : String -> Trie Root -> Trie Root
+insert str trie = insertAtRoot (unpack str) trie
+
+lookupNode : List Char -> Trie Node -> Vect n (Trie Node) -> Maybe (Trie Node)
 lookupNode [] parent _ = Just parent
-lookupNode _ parent [] = Nothing 
-lookupNode xxs@(x :: xs) parent (y :: ys) =
-  if .value y == x
-    then lookupNode xs y $ .children y
-    else lookupNode xxs parent ys
+lookupNode (_ :: _) parent [] = Nothing
+lookupNode str@(c :: cs) parent (n :: ns) =
+  if value n == c
+    then lookupNode cs n $ children n
+    else lookupNode str parent ns
 
-lookupNodes : List Char -> List TrieNode -> Maybe TrieNode
+lookupNodes : List Char -> Vect n (Trie Node) -> Maybe (Trie Node)
 lookupNodes [] _ = Nothing
 lookupNodes _ [] = Nothing
-lookupNodes xxs@(x :: xs) (y :: ys) =
-  if .value y == x
-    then case lookupNode xs y $ .children y of
-      Nothing => lookupNodes xs ys
-      Just a => Just a
-    else lookupNodes xxs ys
-  
-lookup : String -> TrieRoot -> Maybe TrieNode
-lookup str root = lookupNodes (unpack str) (.children root)
+lookupNodes (c :: cs) (n :: ns) =
+  if value n == c
+    then lookupNode cs n (children n)  
+    else lookupNodes cs ns
 
-createNode : List Char -> Maybe TrieNode
-createNode [] = Nothing
-createNode [x] = Just $ MkTrieNode [] x True
-createNode (x :: xs) = case createNode xs of
-  Nothing => Nothing
-  Just child => Just $ MkTrieNode [child] x False
+lookup : String -> Trie Root -> Maybe (Trie Node)
+lookup str root = lookupNodes (unpack str) (children root)
 
-insert' : List Char -> List TrieNode -> List TrieNode -> List TrieNode
-insert' [] [] acc = acc
-insert' [] ys acc = acc ++ ys
-insert' xs [] acc = case createNode xs of
-  Nothing => acc
-  Just node => acc ++ [node]
-insert' xs@[x] (y :: ys) acc =
-  if x == .value y
-    then acc ++ [MkTrieNode (.children y) (.value y) True] ++ ys
-    else insert' xs ys $ acc ++ [y]
-insert' xxs@(x :: xs) (y :: ys) acc = 
-  if x == .value y
-    then acc ++ [MkTrieNode (insert' xs (.children y) []) (.value y) (.isTerminal y)] ++ ys
-    else insert' xxs ys $ acc ++ [y]
-
-insert : String -> TrieRoot -> TrieRoot
-insert str root = MkTrieRoot $ insert' (unpack str) (.children root) []
-
-emptyRoot : TrieRoot
-emptyRoot = MkTrieRoot []
-
-some = insert "Labas" emptyRoot
+some = insert "Labas" buildRoot
 some2 = insert "Labasasa" some
-some3 = insert "Antanas" some2
-found = lookup "Antan" some3
+some3 = insert "Labasasas" some2
+some4 = insert "Antanas" some3
+
+a = lookup "Labas" some4
