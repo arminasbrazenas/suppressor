@@ -57,16 +57,14 @@ insert'' str@(c :: cs) node =
   case findIndex c (children node) of
     Nothing => case buildNode str of
       Nothing => node
-      Just newChild => MkTrieNode 
-                        ((size node) + 1)
-                        ((children node) ++ [newChild])
-                        (value node)
-                        (isTerminal node)
-    Just idx => MkTrieNode
-                  (size node) 
-                  (updateAt idx (\x => insert'' cs x) (children node))
-                  (value node)
-                  (isTerminal node)
+      Just newChild => MkTrieNode ((size node) + 1)
+                                  ((children node) ++ [newChild])
+                                  (value node)
+                                  (isTerminal node)
+    Just idx => MkTrieNode (size node) 
+                           (updateAt idx (\x => insert'' cs x) (children node))
+                           (value node)
+                           (isTerminal node)
 
 insert' : List Char -> Trie Root -> Trie Root
 insert' [] root = root
@@ -74,12 +72,10 @@ insert' str@(c :: cs) root =
   case findIndex c (children root) of
     Nothing => case buildNode str of
       Nothing => root
-      Just newNode => MkTrieRoot 
-                        ((size root) + 1) 
-                        ((children root) ++ [newNode])
-    Just idx => MkTrieRoot 
-                  (size root) 
-                  (updateAt idx (\x => insert'' cs x) (children root))
+      Just newNode => MkTrieRoot ((size root) + 1) 
+                                 ((children root) ++ [newNode])
+    Just idx => MkTrieRoot (size root) 
+                           (updateAt idx (\x => insert'' cs x) (children root))
 
 export
 insert : String -> Trie Root -> Trie Root
@@ -89,18 +85,20 @@ lookup'' : List Char -> Trie Node -> Vect n (Trie Node) -> Maybe (Trie Node)
 lookup'' [] parent _ = Just parent
 lookup'' (_ :: _) parent [] = Nothing
 lookup'' str@(c :: cs) parent (n :: ns) =
-  if value n == c
-    then lookup'' cs n $ children n
-    else lookup'' str parent ns
+  if value n == c then 
+    lookup'' cs n $ children n
+  else 
+    lookup'' str parent ns
 
 lookup' : List Char -> Vect n (Trie Node) -> Maybe (Trie Node)
 lookup' [] _ = Nothing
 lookup' _ [] = Nothing
-lookup' (c :: cs) (n :: ns) =
-  if value n == c
-    then lookup'' cs n (children n)  
-    else lookup' cs ns
+lookup' str@(c :: cs) (n :: ns) =
+  if value n == c then 
+    lookup'' cs n (children n)  
+  else 
+    lookup' str ns
 
 export
-lookup : String -> Trie _ -> Maybe (Trie Node)
-lookup str root = lookup' (unpack str) (children root)
+lookup : List Char -> Trie _ -> Maybe (Trie Node)
+lookup str root = lookup' str (children root)
