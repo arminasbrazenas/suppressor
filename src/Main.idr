@@ -3,6 +3,7 @@ module Main
 import System.REPL
 import Data.String
 import Data.Vect
+import Decidable.Equality
 import Trie
 
 %default total
@@ -22,82 +23,59 @@ record DataStore where
   size : Nat
   filters : Vect size Filter
 
-record ProfanityResult where
-  constructor MkProfanityResult
-  parsed : List Char
-  profanity : Maybe (List Char)
-  rest : List Char
-
 addToBlacklist : String -> Language -> DataStore -> DataStore
-addToBlacklist str lang store = 
+addToBlacklist str lang store =
   case findIndex (\f => f .lang == lang) store .filters of
     Nothing => MkDataStore (store .size + 1) 
                            (store .filters ++ [MkFilter lang (insert (toLower str) emptyTrie)])
     Just idx => MkDataStore (store .size)
                             (updateAt idx (\f => MkFilter lang (insert (toLower str) f .blacklist)) store .filters)
 
-findProfanity' : List Char -> Trie Node -> List Char -> Maybe (List Char)
-findProfanity' [] node parsed =
-  if isTerminal node then
-    Just parsed
-  else
-    Nothing
-findProfanity' str@(c :: cs) node parsed = 
-  if isTerminal node then
-    Just parsed
-  else 
-    case lookup [toLower c] node of
-      Nothing => Nothing
-      Just nextNode => findProfanity' cs nextNode (parsed ++ [c])
+plusSuccRightPlusOne : (n : Nat) -> (m : Nat) -> S (n + m) = n + (m + 1)
+plusSuccRightPlusOne n m = 
+  rewrite plusCommutative m 1 in
+  rewrite plusSuccRightSucc n m in Refl
 
-findProfanity : List Char -> Trie Root -> List Char -> ProfanityResult
-findProfanity [] _ parsed = MkProfanityResult parsed Nothing []
-findProfanity (c :: cs) root parsed = 
-  case lookup [toLower c] root of
-    Nothing => findProfanity cs root (parsed ++ [c])
-    Just node => case findProfanity' cs node [] of
-      Nothing => findProfanity cs root (parsed ++ [c])
-      Just profanity => MkProfanityResult parsed 
-                                          (Just ([c] ++ profanity)) 
-                                          (drop (length profanity) cs)
+replaceWithChar' : {n : Nat} -> {m : Nat} ->Char -> Vect n Char -> Vect m Char -> Vect (n + m) Char
+replaceWithChar' c [] acc = acc
+replaceWithChar' {n = S k} {m} c (x :: xs) acc = rewrite plusSuccRightPlusOne k m in replaceWithChar' c xs (acc ++ [c])
 
-exchange : Char -> List Char -> List Char
-exchange _ [] = []
-exchange c (x :: xs) = [c] ++ exchange c xs
+replaceWithChar : {n : Nat} -> Char -> Vect n Char -> Vect n Char
+replaceWithChar {n} c xs = rewrite sym $ plusZeroRightNeutral n in replaceWithChar' c xs []
 
-suppressProfanities' : List Char -> Trie Root -> List Char -> Nat -> List Char
-suppressProfanities' _ _ _ Z = []
-suppressProfanities' str root parsed (S timeout) = 
-  let
-    res = findProfanity str root []
-  in
-    case res .profanity of
-      Nothing => parsed ++ res .parsed
-      Just prof => suppressProfanities' (res .rest) 
-                                        root 
-                                        (parsed ++ res .parsed ++ exchange '*' prof) 
-                                        timeout
+parseProfanity : {n : Nat} -> {m : Nat} -> Vect n Char -> Vect m Char -> Trie Node -> Maybe ((p ** Vect p Char), (q ** Vect q Char))
+parseProfanity {n = Z} {m} [] acc node = case isTerminal node of
+  False => Nothing
+  True => Just ((m ** acc), (0 ** []))
+parseProfanity {n = S k} {m} xxs@(x :: xs) acc node = case isTerminal node of
+  False => case lookup [toLower x] node of
+    Nothing => Nothing
+    Just childNode => parseProfanity xs (acc ++ [x]) childNode
+  True => Just ((m ** acc), (S k ** xxs))
 
-suppressProfanities : String -> Trie Root -> String
-suppressProfanities str root = pack $ suppressProfanities' (unpack str) root [] (length str)
+suppressProfanities' : {n : Nat} -> {m : Nat} -> Vect n Char -> Vect m Char -> Trie Root -> Nat -> Vect (n + m) Char
+suppressProfanities' [] acc _ _ = acc
+suppressProfanities' xs acc _ Z = xs ++ acc
+suppressProfanities' {n = S k} {m} xxs@(x :: xs) acc root (S it) =
+  case lookup [toLower x] root of
+    Nothing => rewrite plusSuccRightPlusOne k m in suppressProfanities' xs (acc ++ [x]) root it
+    Just node => case parseProfanity xs [x] node of
+      Nothing => rewrite plusSuccRightPlusOne k m in suppressProfanities' xs (acc ++ [x]) root it
+      Just ((profanityLen ** profanity), (restLen ** rest)) => case decEq (S (k + m)) (restLen + (m + profanityLen)) of
+        Yes prf => rewrite prf in suppressProfanities' rest (acc ++ (replaceWithChar '*' profanity)) root it
+        No _ => rewrite plusSuccRightPlusOne k m in suppressProfanities' xs (acc ++ [x]) root it -- should not happen; proof in parseProfanity function needed?
 
-containsProfanities : String -> Trie Root -> Bool
-containsProfanities str root =
-  let
-    res = findProfanity (unpack str) root []
-  in
-    case res .profanity of
-      Nothing => False
-      Just _ => True
+suppressProfanities : {n : Nat} -> Vect n Char -> Trie Root -> Vect n Char
+suppressProfanities {n} xs root = rewrite sym $ plusZeroRightNeutral n in suppressProfanities' xs [] root (length xs)
 
 some = insert "labas" emptyTrie
 some2 = insert "labasasa" some
 some3 = insert "labukas" some2
 some4 = insert "antanas" some3
 
-processInput : String -> String -> Maybe (String, String)
-processInput str str1 = ?processInput_rhs
+processInput : String -> String
+processInput inp = (pack $ toList $ suppressProfanities (fromList $ unpack inp) some4) ++ "\n"
 
 covering
 main : IO ()
-main = replWith "" ">>> " processInput
+main = repl ">>> " processInput
