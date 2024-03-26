@@ -44,14 +44,16 @@ replaceWithChar : {n : Nat} -> Char -> Vect n Char -> Vect n Char
 replaceWithChar {n} c xs = rewrite sym $ plusZeroRightNeutral n in replaceWithChar' c xs []
 
 parseProfanity : {n : Nat} -> {m : Nat} -> Vect n Char -> Vect m Char -> Trie Node -> Maybe ((p ** Vect p Char), (q ** Vect q Char))
-parseProfanity {n = Z} {m} [] acc node = case isTerminal node of
-  False => Nothing
-  True => Just ((m ** acc), (0 ** []))
-parseProfanity {n = S k} {m} xxs@(x :: xs) acc node = case isTerminal node of
-  False => case lookup [toLower x] node of
-    Nothing => Nothing
-    Just childNode => parseProfanity xs (acc ++ [x]) childNode
-  True => Just ((m ** acc), (S k ** xxs))
+parseProfanity {n = Z} {m} [] acc node = 
+  case isTerminal node of
+    False => Nothing
+    True => Just ((m ** acc), (0 ** []))
+parseProfanity {n = S k} {m} xxs@(x :: xs) acc node = 
+  case isTerminal node of
+    False => case lookup [toLower x] node of
+      Nothing => Nothing
+      Just childNode => parseProfanity xs (acc ++ [x]) childNode
+    True => Just ((m ** acc), (S k ** xxs))
 
 suppressProfanities' : {n : Nat} -> {m : Nat} -> Vect n Char -> Vect m Char -> Trie Root -> Nat -> Vect (n + m) Char
 suppressProfanities' [] acc _ _ = acc
