@@ -36,7 +36,7 @@ plusSuccRightPlusOne n m =
   rewrite plusCommutative m 1 in
   rewrite plusSuccRightSucc n m in Refl
 
-replaceWithChar' : {n : Nat} -> {m : Nat} ->Char -> Vect n Char -> Vect m Char -> Vect (n + m) Char
+replaceWithChar' : {n : Nat} -> {m : Nat} -> Char -> Vect n Char -> Vect m Char -> Vect (n + m) Char
 replaceWithChar' c [] acc = acc
 replaceWithChar' {n = S k} {m} c (x :: xs) acc = rewrite plusSuccRightPlusOne k m in replaceWithChar' c xs (acc ++ [c])
 
