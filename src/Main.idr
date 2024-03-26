@@ -58,7 +58,7 @@ parseProfanity {n = S k} {m} xxs@(x :: xs) acc node =
 suppressProfanities' : {n : Nat} -> {m : Nat} -> Vect n Char -> Vect m Char -> Trie Root -> Nat -> Vect (n + m) Char
 suppressProfanities' [] acc _ _ = acc
 suppressProfanities' xs acc _ Z = xs ++ acc
-suppressProfanities' {n = S k} {m} xxs@(x :: xs) acc root (S it) =
+suppressProfanities' {n = S k} {m} (x :: xs) acc root (S it) =
   case lookup [toLower x] root of
     Nothing => rewrite plusSuccRightPlusOne k m in suppressProfanities' xs (acc ++ [x]) root it
     Just node => case parseProfanity xs [x] node of
